@@ -50,7 +50,7 @@ class GlossaryModule(PrivMsgObserverPrototype):
 #                                 " habe ich noch keinen Eintrag. Aber Wikipedia sagt dazu:", data)
             wikiObserver = WikiObserver()
             wikiObserver.config = self.config
-            data2 = data
+            data2 = data.copy()
             data2['message'] = '.w '+split[1]+" \r\n"
             wikiObserver.update_on_priv_msg(data2, connection)
         else:
