@@ -2,6 +2,7 @@
 from FaustBot.Communication.Connection import Connection
 from FaustBot.Modules.PrivMsgObserverPrototype import PrivMsgObserverPrototype
 from collections import defaultdict
+from threading import Lock
 
 
 class HangmanObserver(PrivMsgObserverPrototype):
@@ -21,6 +22,7 @@ class HangmanObserver(PrivMsgObserverPrototype):
         self.wrong_guessed = []
         self.score = defaultdict(int)
         self.worder = ''
+        self.wrongly_guessedWords = []
 
     def update_on_priv_msg(self, data, connection: Connection):
         if data['message'].find('.guess ') != -1:
@@ -35,6 +37,7 @@ class HangmanObserver(PrivMsgObserverPrototype):
             self.tries_left = 0
             self.wrong_guessed = []
             self.worder = ''
+            self.wrongly_guessedWords = []
         if data['message'].find('.hint') != -1:
             self.hint(data, connection)
         if data['message'].find('.score') != -1:
@@ -46,12 +49,24 @@ class HangmanObserver(PrivMsgObserverPrototype):
         connection.send_back(data['nick']+" hat einen Score von: " + str(self.score[data['nick']]), data)
 
     def hint(self, data, connection):
-        wrongGuessesString = "Falsch geratene Buchstaben bis jetzt: "
-        for w in self.wrong_guessed:
-            if w == self.wrong_guessed[0]:
-                wrongGuessesString += w
+        wrongGuessesString = ""
+        if len(self.wrong_guessed) > 0:
+            wrongGuessesString += "Falsch geratene Buchstaben bis jetzt: "
+            for w in self.wrong_guessed:
+                if w == self.wrong_guessed[0]:
+                    wrongGuessesString += w
+                else:
+                    wrongGuessesString += "," + w
+        
+        # Append wrongly guessed words    
+        for w in self.wrongly_guessedWords:
+            if w == self.wrongly_guessedWords[0]:
+                if len(self.wrong_guessed) > 0:
+                    wrongGuessesString += " | "
+                wrongGuessesString += "Falsche Wörter: " + w
             else:
-                wrongGuessesString += "," + w
+                wrongGuessesString += ", " + w
+                
         connection.send_back(wrongGuessesString, data)
 
     def guess(self, data, connection):
@@ -78,7 +93,19 @@ class HangmanObserver(PrivMsgObserverPrototype):
             if guess in self.guesses:
                 punishment_factor = 2
             self.score[data['nick']] -= int((word_unique_chars / 20) * punishment_factor * 10)
-            self.wrong_guessed.append(guess)
+            
+            # append thread safe wrongly guessed characters and words
+            lock = Lock()
+            lock.acquire()
+            try:
+                if guess not in self.wrong_guessed:
+                    if len(guess) == 1:
+                        self.wrong_guessed.append(guess)
+                    else:
+                        self.wrongly_guessedWords.append(guess)
+            finally:
+                lock.release()        
+            
         connection.send_channel(self.prepare_word(data))
 
     def take_word(self, data, connection):
@@ -90,6 +117,7 @@ class HangmanObserver(PrivMsgObserverPrototype):
             self.guesses = ['-', '/', ' ', '_']
             self.wrong_guessed = []
             self.tries_left = 11
+            self.wrongly_guessedWords = []
             connection.send_back("Danke für das Wort, es ist nun im Spiel!", data)
             connection.send_channel("Das Wort ist von: "+data['nick'])
             self.worder = data['nick']
