@@ -16,6 +16,7 @@ class HangmanObserver(PrivMsgObserverPrototype):
 
     def __init__(self):
         super().__init__()
+        HangmanObserver.lock = Lock()
         self.word = ''
         self.guesses = ['-', '/', ' ', '_']
         self.tries_left = 0
@@ -95,8 +96,7 @@ class HangmanObserver(PrivMsgObserverPrototype):
             self.score[data['nick']] -= int((word_unique_chars / 20) * punishment_factor * 10)
             
             # append thread safe wrongly guessed characters and words
-            lock = Lock()
-            lock.acquire()
+            HangmanObserver.lock.acquire()
             try:
                 if guess not in self.wrong_guessed:
                     if len(guess) == 1:
@@ -104,7 +104,7 @@ class HangmanObserver(PrivMsgObserverPrototype):
                     else:
                         self.wrongly_guessedWords.append(guess)
             finally:
-                lock.release()        
+                HangmanObserver.lock.release()        
             
         connection.send_channel(self.prepare_word(data))
 
