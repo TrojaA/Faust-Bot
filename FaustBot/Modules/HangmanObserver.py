@@ -74,7 +74,7 @@ class HangmanObserver(PrivMsgObserverPrototype):
         if data['channel'] != connection.details.get_channel():
             connection.send_back("Sorry kein raten im Query", data)
             return
-        guess = data['message'].split(' ')[1].upper()
+        guess = data['message'][data['message'].find('.guess')+len('.guess'):].split(' ')[1].upper() # substring only the whitespaced parameter
         if self.tries_left < 1:
             connection.send_channel("Flüstere mir ein neues Wort mit .word WORT")
             return
@@ -102,7 +102,8 @@ class HangmanObserver(PrivMsgObserverPrototype):
                     if len(guess) == 1:
                         self.wrong_guessed.append(guess)
                     else:
-                        self.wrongly_guessedWords.append(guess)
+                        if guess not in self.wrongly_guessedWords:
+                            self.wrongly_guessedWords.append(guess)
             finally:
                 HangmanObserver.lock.release()        
             
